@@ -1,0 +1,49 @@
+[gd_scene load_steps=7 format=2]
+
+[ext_resource path="res://Objects/Plank/Plank.gd" type="Script" id=1]
+[ext_resource path="res://Objects/Plank/plank.png" type="Texture" id=2]
+
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 0.062, 0.125, 0.125 )
+
+[sub_resource type="CubeMesh" id=2]
+size = Vector3( 2, 0.25, 0.25 )
+
+[sub_resource type="SpatialMaterial" id=3]
+resource_local_to_scene = true
+albedo_texture = ExtResource( 2 )
+
+[sub_resource type="BoxShape" id=4]
+margin = 0.01
+extents = Vector3( 1.01, 0.135, 0.125 )
+
+[node name="Plank" type="RigidBody"]
+script = ExtResource( 1 )
+
+[node name="Weld" type="Spatial" parent="."]
+
+[node name="Side1" type="Area" parent="Weld" groups=[
+"weld_static",
+]]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0, 0 )
+
+[node name="CollisionShape" type="CollisionShape" parent="Weld/Side1"]
+shape = SubResource( 1 )
+__meta__ = {
+"_editor_description_": ""
+}
+
+[node name="Side2" type="Area" parent="Weld" groups=[
+"weld_static",
+]]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0 )
+
+[node name="CollisionShape2" type="CollisionShape" parent="Weld/Side2"]
+shape = SubResource( 1 )
+
+[node name="MeshInstance" type="MeshInstance" parent="."]
+mesh = SubResource( 2 )
+material/0 = SubResource( 3 )
+
+[node name="CollisionShape" type="CollisionShape" parent="."]
+shape = SubResource( 4 )
