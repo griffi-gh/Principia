@@ -2,13 +2,9 @@ extends Spatial
 
 signal mode_switched
 
-export var cam_zoom_speed = 4
-
 var objects = []
 var held_object = null
 var selected_object = null
-var cam_move_point = Vector2(0,0)
-onready var target_cam_z = $Camera.global_transform.origin.z
 # mode : 0 - editor; 1 - play
 
 func switch_mode(nmode):
@@ -26,10 +22,10 @@ func load_objects():
 	for v in f.dir:
 		print('loading object: ' + v + '...')
 		var obj = {
-			'scene': load(
+			'scene': ResourceLoader.load(
 				'res://Objects/{0}/{0}.tscn'.format([v])
 			),
-			'info':  load(
+			'info':  ResourceLoader.load(
 				'res://Objects/{0}/Info.gd'.format([v])
 			)
 		}
@@ -74,21 +70,10 @@ func _ready():
 	Global.main_scene = self
 	Global.objects = objects
 	Global.current_mode = 0
-
-func plane_mouse_pos():
-	var mouse = get_viewport().get_mouse_position()
-	var vec = $Camera.project_position(mouse, $Camera.global_transform.origin.z)
-	return Vector2(vec.x, vec.y)
 	
 func _process(delta):
-	#handle camera movement
-	if Input.is_action_just_pressed('move_cam'):
-		cam_move_point = plane_mouse_pos()
-	elif Input.is_action_pressed('move_cam'):
-		var cam = $Camera
-		var ref = plane_mouse_pos()
-		cam.global_transform.origin.x -= (ref.x - cam_move_point.x)
-		cam.global_transform.origin.y -= (ref.y - cam_move_point.y)
+	#debug gui
+	$GUI/JoitnCnt.text = str($GlobalJoints.get_child_count())
 	#handle selected_object
 	if held_object:
 		selected_object = weakref(held_object)
@@ -109,7 +94,8 @@ func _process(delta):
 		for v in soref.touches:
 			var body = v.body
 			var skip = false
-			for j in soref.get_node('Joints').get_children():
+			for j in soref.joints:
+				assert(j != null)
 				var b = Global.get_joint_node(j, soref)
 				if b == body:
 					skip = true
@@ -126,14 +112,7 @@ func _process(delta):
 				weldbtns.add_child(weld_icon)
 
 func _physics_process(delta):
-	#handle camera smooth zoom
-	var diff = target_cam_z - $Camera.global_transform.origin.z
-	if diff != 0:
-		var dist = cam_zoom_speed * delta
-		if diff < 0:
-			dist *= -1
-		$Camera.global_transform.origin.z += dist
-	$Camera.size = $Camera.global_transform.origin.z * 1.5
+	pass
 
 const WELD_TYPES = [
 	"weld_static"
@@ -147,8 +126,11 @@ func weld(a, b, type = 'weld_static'):
 		joint.set_param(joint.PARAM_LINEAR_LIMIT_UPPER, 0)
 	joint.set_node_a(a.get_path())
 	joint.set_node_b(b.get_path())
-	a.get_node("Joints").add_child(joint)
-	b.get_node("Joints").add_child(joint)
+	$GlobalJoints.add_child(joint)
+	a.joints.append(joint.get_path())
+	b.joints.append(joint.get_path())
+	#a.get_node("Joints").add_child(joint)
+	#b.get_node("Joints").add_child(joint.duplicate())
 	return joint
 
 func get_area_weld_type(area):
@@ -169,9 +151,6 @@ func _on_Play_pressed():
 	else:
 		switch_mode(0)
 
-func _on_Projection_pressed():
-	$Camera.projection = !$Camera.projection
-
 func _on_pickable_clicked(obj):
 	if Global.current_mode==0 or obj.is_in_group("pickable_interactive"):
 		if obj.is_in_group("pickable"):
@@ -191,10 +170,6 @@ func _unhandled_input(event): #
 			if selected_object and selected_object.get_ref():
 				selected_object = null
 				generate_prop(null)
-	elif event.is_action("zoom_in") and event.pressed:
-		target_cam_z -= 0.25
-	elif event.is_action("zoom_out") and event.pressed:
-		target_cam_z += 0.25
 
 func add_object(id):
 	var new_obj = objects[id].scene.instance()

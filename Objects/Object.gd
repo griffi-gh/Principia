@@ -16,6 +16,8 @@ var layer = 1
 var temporary = false
 var touches = []
 
+var joints = []
+
 var offset = Vector3(0,0,0)
 
 #callbacks
@@ -32,6 +34,7 @@ func on_play():
 func apply_mode(m):
 	gravity_scale = PLAY_GRAVITY_SCALE if m==1 else EDITOR_GRAVITY_SCALE
 	mode = EDITOR_MODE if m==0 else PLAY_MODE 
+	sleeping = false
 
 func _menu_action_delete(b, i):
 	p_destroy()
@@ -52,9 +55,9 @@ func _ready():
 	set_axis_lock(PhysicsServer.BODY_AXIS_ANGULAR_Y, true)
 	set_axis_lock(PhysicsServer.BODY_AXIS_LINEAR_Z,  true)
 	###
-	var joints_node = Node.new()
-	joints_node.set_name("Joints")
-	add_child(joints_node)
+	#var joints_node = Node.new()
+	#joints_node.set_name("Joints")
+	#add_child(joints_node)
 	###
 	connect("input_event", self, "_on_input_event")
 	for node in $Weld.get_children():
@@ -92,7 +95,26 @@ func _ready():
 		}
 	)
 
+func cleanup_empty_joints():
+	for joint in joints:
+		var jn = get_node_or_null(joint)
+		if jn == null:
+			joints.erase(joint)
+			print('cleaned up null joint')
+		else:
+			var a = get_node_or_null(jn.get_node_a())
+			var b = get_node_or_null(jn.get_node_b())
+			if (a == null) or (b == null) :
+				if a != null:
+					a.joints.erase(joint)
+				if b != null:
+					b.joints.erase(joint)
+				jn.queue_free()
+				print('cleanup joint')
+				print(Global.main_scene.get_node("GlobalJoints").get_children_count())
+
 func _process(delta):
+	cleanup_empty_joints()
 	tick(delta)
 
 func get_mouse_pos3d(mouse_pos = null):
@@ -142,10 +164,11 @@ func _weld_area_entered(body, area):
 			body = body,
 			area = area 
 		})
-		print('valid enter')
+		#print('valid enter')
 	else:
-		print('invalid enter')
-	debug_areas(body, area)
+		pass
+		#print('invalid enter')
+	#debug_areas(body, area)
 
 func _weld_area_exited(body, area):
 	if body != self:
@@ -153,8 +176,8 @@ func _weld_area_exited(body, area):
 			if touches[i].body == body:
 				touches.remove(i)
 				break
-		print('exit')
-		debug_areas(body, area)
+		#print('exit')
+		#debug_areas(body, area)
 
 func pickup(zero_offset = false):
 	held = true
@@ -167,18 +190,19 @@ func drop():
 	held = false
 
 #api
-const layer_depth = 0.5
 
-func p_set_layer(new_layer):
-	global_transform.origin.z = (layer_depth / 2) + (-layer_depth * int(round(new_layer)))
+func p_set_layer(new_layer, keep_weld = false):
+	if !keep_weld:
+		p_unweld()
+	global_transform.origin.z = (Global.layer_depth / 2) + (-Global.layer_depth * int(round(new_layer)))
 	layer = new_layer
 
 func p_get_layer():
 	return layer
 
-func p_set_position(x, y, layer = -1):
-	if layer != -1:
-		p_set_layer(layer)
+func p_set_position(x, y, l = -1):
+	if l != -1:
+		p_set_layer(l)
 	global_transform.origin.x = x
 	global_transform.origin.y = y
 
@@ -186,11 +210,17 @@ func p_get_angle():
 	return global_transform.basis.get_euler().y
 		
 func p_unweld():
-	for joint in $Joints.get_children():
-		joint.queue_free()
+	for joint in joints:
+		var jn = get_node(joint)
+		var a = get_node(jn.get_node_a())
+		var b = get_node(jn.get_node_a())
+		a.joints.erase(joint)
+		b.joints.erase(joint)
+		jn.queue_free()
 
 #func p_set_angle(deg):
 #	set_rotation_deg(Vector3(0,45,0))
 
 func p_destroy():
+	p_unweld()
 	queue_free()
